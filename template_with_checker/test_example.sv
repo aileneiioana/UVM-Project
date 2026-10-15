@@ -143,9 +143,8 @@ class test_example extends uvm_test;
  
     //count how many errors and warnings occurred during the test; if there was at least one, the test failed and must be fixed
      $display("number of errors: %0d \nnumber of warnings: %0d",svr.get_severity_count(UVM_FATAL) + svr.get_severity_count(UVM_ERROR), svr.get_severity_count(UVM_WARNING));
-      if(svr.get_severity_count(UVM_FATAL) +
-         svr.get_severity_count(UVM_ERROR)>0 +
-       svr.get_severity_count(UVM_WARNING) > 0) 
+      if((svr.get_severity_count(UVM_FATAL) + svr.get_severity_count(UVM_ERROR) > 0) ||
+         (svr.get_severity_count(UVM_WARNING) > 0))
 		begin
      			`uvm_info(get_type_name(), "---------------------------------------", UVM_NONE)
      			`uvm_info(get_type_name(), "----            TEST FAIL          ----", UVM_NONE)
@@ -157,9 +156,7 @@ class test_example extends uvm_test;
      			`uvm_info(get_type_name(), "----           TEST PASS           ----", UVM_NONE)
      			`uvm_info(get_type_name(), "---------------------------------------", UVM_NONE)
     		end
-    
-    //end the test
-        $finish();
+
   	endfunction 
 endclass
 `endif

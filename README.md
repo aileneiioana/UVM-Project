@@ -1,55 +1,88 @@
-# UVM Verification – Lab Materials & Projects
+# UVM Verification – Student Exercise Template
 
-SystemVerilog/UVM verification environments used in the **UVM Verification lab** of the M.Sc. program *Electronic Systems and Integrated Communications* at **Transilvania University of Brașov**, where I taught the lab sessions (2nd semester, 2024 and 2025).
+SystemVerilog/UVM environment template used in the **UVM Verification lab** of the M.Sc. program *Electronic Systems and Integrated Communications* at **Transilvania University of Brașov**, where I taught the lab sessions (2nd semester, 2024 and 2025).
 
-The repository covers the full UVM flow, from a minimal single-agent APB environment up to a multi-agent environment with a reference model, functional coverage, and SVA assertions.
+The template gives students a working two-agent UVM skeleton around a small DUT. The scoreboard contains a complete, commented **checker** as a worked example; other parts are **intentionally incomplete**, and students finish the agents and the functional coverage themselves.
 
 > The material was originally written in Romanian for Romanian-speaking students; code, comments, identifiers and file names have since been translated to English.
 
-## Contents
+## The DUT
 
-| Folder | What it is | Highlights |
-|---|---|---|
-| [`lab5/`](lab5) | Introductory APB lab | APB agent (driver, monitor, sequence), scoreboard, functional coverage, example test |
-| [`template_with_checker/`](template_with_checker) | Reusable environment template with a checker | APB agent plus a generic `*_rename` agent skeleton that students copy and adapt to their own DUT |
-| [`eda_2/`](eda_2) | Ambient-control environment (multi-agent) | 3 agents (sensor, button, actuator), scoreboard with reference model, coverage collectors, SVA assertions, 10 directed and constrained-random tests |
-| `Specificatie Inmultire matrici 2024.docx` / `.pdf` | Verification project specification | Team project (M.Sc., 2023–2024): systolic matrix multiplier with APB configuration and req/ack memory interfaces |
-
-## Environment architecture (`eda_2/`)
+`my_dut` (`template_with_checker/design.sv`) is a combinational address comparator:
 
 ```
-top
- └─ test (test_*.sv)
-     └─ verification_env            (UVM env)
-         ├─ sensor_agent            temperature / humidity / luminous intensity stimulus
-         │   ├─ driver, monitor, sequencer
-         │   └─ coverage_sensor
-         ├─ button_agent            button stimulus (single, multiple, fast presses)
-         │   └─ coverage_agent_button
-         ├─ actuator_agent          passive: observes heat / AC / dehumidifier / blinds outputs
-         │   └─ coverage_agent_actuator
-         └─ scoreboard              reference model + comparison against DUT outputs
+irq_o = psel_i && penable_i && valid_i && (paddr_i == addr_i)
 ```
 
-- **Interfaces with SVA**: `sensor_interface_dut.sv` checks input value ranges; `actuator_interface.sv` checks the control behaviour. Each property is paired with a `cover property`.
-- **Coverage**: bins target the DUT's decision thresholds and boundary values, e.g. the exact temperature, humidity, and light levels that switch actuators.
-- **Tests**: basic smoke test, boundary values, temperature and humidity regulation, light-intensity control, button stress (multiple, rapid, frequent presses), and a full combined test.
+It has two input interfaces, an APB-style bus (`psel`, `penable`, `paddr`) and a generic "rename" interface (`valid`, `addr`), and one output, `irq`.
 
-The DUT in `eda_2/design.sv` is an FSM-based ambient controller written by Pascu Marius (2021), used here as the design under test for the lab.
+## Environment architecture
+
+```
+top (testbench.sv)
+ ├─ my_dut
+ └─ test_example
+     └─ verification_env
+         ├─ apb_agent        (active)  driver, monitor, sequencer, coverage_apb
+         ├─ rename_agent     (active)  driver, monitor, sequencer, coverage_rename
+         └─ scoreboard                 collects transactions from both monitors; checker in check_phase
+```
+
+| File | Role |
+|---|---|
+| `design.sv` | DUT |
+| `testbench.sv` | `top` module: clock, interface instances, DUT instance, `run_test()` |
+| `apb_interface_dut.sv`, `rename_interface_dut.sv` | Interfaces |
+| `transaction_apb.sv`, `transaction_rename.sv` | Sequence items |
+| `apb_sequence.sv`, `rename_sequence.sv` | Random sequences |
+| `driver_agent_apb.sv`, `driver_agent_rename.sv` | Drivers |
+| `monitor_apb.sv`, `monitor_rename.sv` | Monitors |
+| `coverage_apb.sv`, `coverage_rename.sv` | Coverage collectors |
+| `apb_agent.sv`, `rename_agent.sv` | Agents |
+| `scoreboard.sv` | Scoreboard with the checker (worked example) |
+| `verification_env.sv` | Environment |
+| `test_example.sv` | Example test: reset, both sequences in parallel, coverage and error report |
+
+## The checker (worked example)
+
+A checker compares what the DUT actually did with what it should have done according to its specification. In `scoreboard.sv`:
+
+1. The `write_apb` / `write_rename` functions store every transaction received from the monitors, together with the simulation time at which it was sampled.
+2. In `check_phase` (after the run phase), each rename transaction is paired with the APB access sampled in the **same clock cycle**: both monitors sample on the falling edge of the same clock, so equal time stamps mean the same cycle.
+3. A small reference model computes the expected `irq` from the specification, and two checks compare it with the `irq` the DUT produced:
+   - **checker 1**: `irq` asserted when it should not be;
+   - **checker 2**: `irq` expected but not asserted.
+4. A summary reports the number of checks and errors. If nothing was checked, this is reported as an error, since a checker that checked nothing proves nothing.
+
+## What students complete
+
+- **APB agent**: the driver implements a simplified handshake (`psel`, `penable`, `paddr`); students extend it towards the APB protocol.
+- **Functional coverage**: the bins in `coverage_apb.sv` and `coverage_rename.sv` cover only part of the address range and include no crosses; students define meaningful bins and crosses (e.g. address match × `irq`).
+- **Adapting the `rename` agent**: the generic `rename` agent is a starting point that students rename and adapt to their own DUT interface.
 
 ## How to run
 
-The environments are self-contained and were run on [EDA Playground](https://www.edaplayground.com):
+`testbench.sv` already includes all the files it needs. The default test is `test_example`.
+
+### EDA Playground
 
 1. Create a new playground and select **UVM 1.2** and a SystemVerilog simulator (e.g. Synopsys VCS or Cadence Xcelium).
-2. Copy the files of one folder into the playground: `design.sv` goes in the design pane, everything else in the testbench pane.
-3. In `testbench.sv`, un-comment the `include` lines for the interfaces and the test you want.
-4. The default test is set in `run_test()` in `testbench.sv`; to run another one, add `+UVM_TESTNAME=<test_class_name>` to the run options, for example `+UVM_TESTNAME=test_ambient_base`.
+2. Copy the files of `template_with_checker/` into the playground: `design.sv` goes in the design pane, everything else in the testbench pane.
+3. Run.
+
+### Vivado simulator (xsim)
+
+Tested with Vivado 2025.2, which ships with UVM 1.2. From `template_with_checker/`:
+
+```
+xvlog -sv -L uvm testbench.sv
+xelab top -L uvm -timescale 1ns/1ns -s top_sim
+xsim top_sim -R
+```
 
 ## Topics covered in the lab
 
 - UVM testbench architecture: env, agents, driver, monitor, sequencer
 - Transactions, sequences, and constrained-random stimulus
-- Analysis ports and scoreboards with reference models
-- Functional coverage: covergroups, bins, and coverage-driven test writing
-- SystemVerilog Assertions in interfaces
+- Analysis ports and scoreboards
+- Functional coverage: covergroups, bins, and crosses
