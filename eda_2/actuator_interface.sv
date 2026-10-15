@@ -14,15 +14,15 @@ interface actuator_interface_dut;
 
   //  import uvm_pkg::*;
   
-    //asertii pe interfata
+    //assertions on the interface
    property temperature_control;
-     @(posedge clk_i) disable iff (reset_n!==0)//daca avem reset, nu se executa asertia
-     (AC_o + heat_o <=1);//nu pot fi pornite simultan caldura si aerul conditionat
+     @(posedge clk_i) disable iff (reset_n!==0)//while reset is active, the assertion is not evaluated
+     (AC_o + heat_o <=1);//heating and air conditioning cannot be on at the same time
   endproperty
   
-  asertia_temperature_control: assert property (temperature_control) 
-    else `uvm_error("ACTUATOR_INTERFACE", $sformatf("asertia asertia_temperature_control a picat, elementul de incalzire avand valoarea %0d si elementul de racire avand valoarea %0d", heat_o, AC_o));
-    TEMPERATURE_CONTROL: cover property (temperature_control);//ne asiguram ca proprietatea a fost accesata macar o data
+  assert_temperature_control: assert property (temperature_control) 
+    else `uvm_error("ACTUATOR_INTERFACE", $sformatf("assertion assert_temperature_control failed: heating element has value %0d and cooling element has value %0d", heat_o, AC_o));
+    TEMPERATURE_CONTROL: cover property (temperature_control);//make sure the property was exercised at least once
       
       
       

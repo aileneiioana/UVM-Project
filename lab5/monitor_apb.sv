@@ -3,52 +3,52 @@ import uvm_pkg::*;
 
 `ifndef __apb_monitor
 `define __apb_monitor
-//`include "tranzactie_semafoare.sv"
+//`include "transaction_traffic_lights.sv"
 
 class monitor_apb extends uvm_monitor;
   
-  //monitorul se adauga in baza de date UVM
+  //register the monitor in the UVM factory
   `uvm_component_utils (monitor_apb) 
   
-  //se declara colectorul de coverage care va inregistra valorile semnalelor de pe interfata citite de monitor
-  coverage_apb colector_coverage_apb; 
+  //declare the coverage collector that will record the values of the interface signals read by the monitor
+  coverage_apb apb_coverage_collector; 
   
-  //este creat portul prin care monitorul trimite spre exterior (la noi, informatia este accesata de scoreboard), prin intermediul agentului, tranzactiile extrase din traficul de pe interfata
-  uvm_analysis_port #(tranzactie_apb) port_date_monitor_apb;
+  //create the port through which the monitor sends out (in our case to the scoreboard), via the agent, the transactions extracted from the interface traffic
+  uvm_analysis_port #(transaction_apb) monitor_apb_data_port;
   
-  //declaratia interfetei de unde monitorul isi colecteaza datele
-  //virtual interfata_apb interfata_monitor_apb;
-  virtual apb_interface_dut interfata_monitor_apb;
+  //declaration of the interface from which the monitor collects its data
+  //virtual apb_interface monitor_apb_intf;
+  virtual apb_interface_dut monitor_apb_intf;
   
-  tranzactie_apb starea_preluata_a_apbului, aux_tr_apb;
+  transaction_apb sampled_apb_state, aux_tr_apb;
   
-  //constructorul clasei
+  //class constructor
   function new(string name = "monitor_apb", uvm_component parent = null);
     
-    //prima data se apeleaza constructorul clasei parinte
+    //first call the parent class constructor
     super.new(name, parent);
     
-    //se creeaza portul prin care monitorul trimite in exterior, prin intermediul agentului, datele pe care le-a cules din traficul de pe interfata
-    port_date_monitor_apb = new("port_date_monitor_apb",this);
+    //create the port through which the monitor sends out, via the agent, the data it collected from the interface traffic
+    monitor_apb_data_port = new("monitor_apb_data_port",this);
     
-    //se creeaza colectorul de coverage (la creare, se apeleaza constructorul colectorului de coverage)
+    //create the coverage collector (on creation, the coverage collector's constructor is called)
     
-    colector_coverage_apb = coverage_apb::type_id::create ("colector_coverage_apb", this);
+    apb_coverage_collector = coverage_apb::type_id::create ("apb_coverage_collector", this);
     
     
-    //se creeaza obiectul (tranzactia) in care se vor retine datele colectate de pe interfata la fiecare tact de ceas
-    starea_preluata_a_apbului = tranzactie_apb::type_id::create("date_noi");
+    //create the object (transaction) that will hold the data collected from the interface on every clock cycle
+    sampled_apb_state = transaction_apb::type_id::create("new_data");
     
-    aux_tr_apb = tranzactie_apb::type_id::create("datee_noi");
+    aux_tr_apb = transaction_apb::type_id::create("new_data_copy");
   endfunction
   
   
-  //se preia din baza de date interfata la care se va conecta monitorul pentru a citi date, si se "leaga" la interfata pe care deja monitorul o contine
+  //get from the database the interface the monitor will connect to in order to read data, and bind it to the interface handle the monitor already contains
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
     
-    if (!uvm_config_db#(virtual apb_interface_dut)::get(this, "", "apb_interface_dut", interfata_monitor_apb))
-        `uvm_fatal("MONITOR_apb", "Nu s-a putut accesa interfata monitorului")
+    if (!uvm_config_db#(virtual apb_interface_dut)::get(this, "", "apb_interface_dut", monitor_apb_intf))
+        `uvm_fatal("MONITOR_APB", "Could not access the monitor interface")
   endfunction
         
   
@@ -56,8 +56,8 @@ class monitor_apb extends uvm_monitor;
   virtual function void connect_phase (uvm_phase phase);
     super.connect_phase(phase);
     
-    //in faza UVM "connect", se face conexiunea intre pointerul catre monitor din instanta colectorului de coverage a acestui monitor si monitorul insusi 
-	colector_coverage_apb.p_monitor = this;
+    //in the UVM "connect" phase, the monitor handle inside this monitor's coverage collector instance is connected to the monitor itself 
+	apb_coverage_collector.p_monitor = this;
     
   endfunction
   
@@ -66,24 +66,24 @@ class monitor_apb extends uvm_monitor;
     
     forever begin
       
-      //!!!!sa astept ca datele sa fie valide
-      wait(interfata_monitor_apb.psel && interfata_monitor_apb.penable); 
-      //vreau sa citesc semnalul valid_i doar pe fronturile descrescatoare de ceas
-      @(negedge interfata_monitor_apb.pclk); 
-      //preiau datele de pe interfata de iesire a DUT-ului (interfata_semafoare)
-      starea_preluata_a_apbului.addr = interfata_monitor_apb.paddr;
+      //!!!!wait until the data is valid
+      wait(monitor_apb_intf.psel && monitor_apb_intf.penable); 
+      //I want to sample valid_i only on falling clock edges
+      @(negedge monitor_apb_intf.pclk); 
+      //sample the data from the DUT output interface
+      sampled_apb_state.addr = monitor_apb_intf.paddr;
     
-      aux_tr_apb = starea_preluata_a_apbului.copy();//nu vreau sa folosesc pointerul starea_preluata_a_apbului pentru a trimite datele, deoarece continutul acestuia se schimba, iar scoreboardul va citi alte date 
+      aux_tr_apb = sampled_apb_state.copy();//I don't want to use the sampled_apb_state handle to send the data, because its contents change and the scoreboard would read different data 
       
-       //tranzactia cuprinzand datele culese de pe interfata se pune la dispozitie pe portul monitorului, daca modulul nu este in reset
-      port_date_monitor_apb.write(aux_tr_apb); 
-      `uvm_info("MONITOR_apb", $sformatf("S-a receptionat tranzactia cu informatiile:"), UVM_NONE)
-      aux_tr_apb.afiseaza_informatia_tranzactiei();
+       //the transaction holding the data collected from the interface is made available on the monitor's port
+      monitor_apb_data_port.write(aux_tr_apb); 
+      `uvm_info("MONITOR_APB", $sformatf("Received the transaction with the following information:"), UVM_NONE)
+      aux_tr_apb.display_transaction_info();
 	  
-      //se inregistreaza valorile de pe cele doua semnale de iesire
-      colector_coverage_apb.stari_apb_cg.sample();
+      //sample the values of the output signals for coverage
+      apb_coverage_collector.apb_states_cg.sample();
       
-	  @(negedge interfata_monitor_apb.pclk); //acest wait il adaug deoarece uneori o tranzactie este interpretata a fi doua tranzactii identice back to back (validul este citit ca fiind 1 pe doua fronturi consecutive de ceas); in implementarea curenta nu se poate sa vina doua tranzactii back to back
+	  @(negedge monitor_apb_intf.pclk); //this wait was added because sometimes one transaction was interpreted as two identical back-to-back transactions (valid was read as 1 on two consecutive clock edges); in the current implementation two transactions cannot come back to back
       
       
     end//forever begin

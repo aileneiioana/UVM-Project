@@ -10,7 +10,7 @@ interface apb_interface_dut;
   
  import uvm_pkg::*;
       
-//ASERTII
+//ASSERTIONS
       
 endinterface
 

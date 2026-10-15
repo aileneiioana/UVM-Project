@@ -1,60 +1,60 @@
 `ifndef __ambient_scoreboard
 `define __ambient_scoreboard
 
-//se declara prefixele pe care le vor avea elementele folosite pentru a prelua datele de la agentul de intrari, respectiv de la agentul de semafoare
+//declare the suffixes of the analysis imp ports used to receive data from each agent
 `uvm_analysis_imp_decl(_actuator)
-`uvm_analysis_imp_decl(_senzor)
-`uvm_analysis_imp_decl(_buton)
+`uvm_analysis_imp_decl(_sensor)
+`uvm_analysis_imp_decl(_button)
 
 class scoreboard extends uvm_scoreboard;
   
-  //se adauga componenta in baza de date UVM
+  //register the component in the UVM factory
   `uvm_component_utils(scoreboard)
   
-  //se declara porturile prin intermediul carora scoreboardul primeste datele de la agenti, aceste date reflectand functionalitatea DUT-ului
-  //a se observa ca prefixele declarate mai sus intra in componenta tipului de data al porturilor
-  //pentru fiecare port declarat, se spune carui tip de scoreboard ii apartine (in situatia de fata avem doar o clasa care defineste scoreboardul cu numele "scoreboard") portul, si ce tip de date vor fi vehiculate pe portul respectiv
-  uvm_analysis_imp_actuator #(tranzactie_agent_actuator, scoreboard) port_pentru_datele_de_laActuator;
-  uvm_analysis_imp_senzor #(tranzactie_senzor, scoreboard) port_pentru_datele_de_laSenzor;
-  uvm_analysis_imp_buton #(tranzactie_agent_buton, scoreboard) port_pentru_datele_de_laButon;
+  //declare the ports through which the scoreboard receives data from the agents; this data reflects the functionality of the DUT
+  //note that the suffixes declared above become part of the ports' data type
+  //for each declared port we specify which scoreboard type it belongs to (here there is only one class defining the scoreboard, named "scoreboard") and what data type is carried on that port
+  uvm_analysis_imp_actuator #(transaction_agent_actuator, scoreboard) actuator_data_port;
+  uvm_analysis_imp_sensor #(transaction_sensor, scoreboard) sensor_data_port;
+  uvm_analysis_imp_button #(transaction_agent_button, scoreboard) button_data_port;
   
-  //se declara colectorul de coverage folosit pentru a se inregistra ce valori a generat senzorul atunci cand DUT-ul era pornit (enable = 1)
-  coverage_valori_citite_senzor_ref colector_coverage_scoreboard;
+  //declare the coverage collector used to record which values the sensor generated while the DUT was enabled (enable = 1)
+  coverage_sensor_values_read_ref scoreboard_coverage_collector;
   
-  //pentru a inregistra coverage-ul dorit avem nevoie sa stim atat ce valori au venit de la senzori
-  tranzactie_senzor tranzactie_venita_de_la_senzor;
-  //se declara structura care va retine datele prezise de modelul de referinta; aceste date vor fi comparate cu datele de la iesirea DUT-ului
-  tranzactie_agent_actuator tranzactie_prezisa_de_referinta, tranzactie_initiala_actuator, tranzactie_calculata_de_ref, tranzactie_de_la_dut;// tranzactie_initiala_actuator repezinta o tranzactie care nu se modifica niciodata, avand valorile implicite ale actuatorilor dupa reset; 
+  //to record the desired coverage we need to know what values came from the sensors
+  transaction_sensor received_sensor_transaction;
+  //declare the objects that hold the data predicted by the reference model; this data is compared with the data at the DUT output
+  transaction_agent_actuator ref_predicted_transaction, initial_actuator_transaction, ref_computed_transaction, dut_transaction;// initial_actuator_transaction is a transaction that never changes, holding the default actuator values after reset; 
   
-  //lista in care se retin tranzactiile pentru actuatori calculate de referinta; folosim o lista deoarece referinta calculeaza mai repede in ce stare se afla actuatorii decat DUT-ul, si aceste calcule trebuie retinute pana cand se culeg datele si de la DUT
-  tranzactie_agent_actuator lista_tranzactii_ref [$];
+  //list holding the actuator transactions computed by the reference model; a list is used because the model computes the actuator state faster than the DUT, so these results must be kept until the DUT data is also collected
+  transaction_agent_actuator ref_transaction_list [$];
   
   bit enable;
   
-   //constructorul clasei
+   //class constructor
   function new(string name="scoreboard", uvm_component parent=null);
-    //se apeleaza mai intai constructorul clasei parinte
+    //first call the parent class constructor
     super.new(name, parent);
-    //crearea porturilor
-    port_pentru_datele_de_laActuator = new("pentru_datele_de_laActuator", this);
-    port_pentru_datele_de_laSenzor = new("pentru_datele_de_laSenzor", this);
-    port_pentru_datele_de_laButon = new("pentru_datele_de_laButon", this);
+    //create the ports
+    actuator_data_port = new("actuator_data_port", this);
+    sensor_data_port = new("sensor_data_port", this);
+    button_data_port = new("button_data_port", this);
     
-    //se creeaza tranzactia prezisa  de referinta:
-    tranzactie_prezisa_de_referinta = new();
+    //create the transaction predicted by the reference model:
+    ref_predicted_transaction = new();
     
-    //se creeaza tranzactia necesare pentru coverage:
-    tranzactie_venita_de_la_senzor = new();
+    //create the transaction needed for coverage:
+    received_sensor_transaction = new();
 	
-	tranzactie_initiala_actuator = new();
+	initial_actuator_transaction = new();
 	
-	lista_tranzactii_ref.push_back(tranzactie_initiala_actuator);
+	ref_transaction_list.push_back(initial_actuator_transaction);
     
-    tranzactie_calculata_de_ref = new();
-	tranzactie_de_la_dut  = new();
+    ref_computed_transaction = new();
+	dut_transaction  = new();
     
-    //se creeaza colectorul de coverage (la creare, se apeleaza constructorul colectorului de coverage)
-    colector_coverage_scoreboard = coverage_valori_citite_senzor_ref::type_id::create("colector_coverage_scoreboard", this);
+    //create the coverage collector (on creation, the coverage collector's constructor is called)
+    scoreboard_coverage_collector = coverage_sensor_values_read_ref::type_id::create("scoreboard_coverage_collector", this);
     
   endfunction
   
@@ -62,140 +62,140 @@ class scoreboard extends uvm_scoreboard;
   virtual function void connect_phase (uvm_phase phase);
     super.connect_phase(phase);
     
-    //in faza UVM "connect", se face conexiunea intre pointerul catre monitor din instanta colectorului de coverage a acestui monitor si monitorul insusi 
-    ///colector_coverage_fsm_actuator_inteligenta.p_scoreboard = this;
+    //in the UVM "connect" phase, the monitor handle inside this monitor's coverage collector instance is connected to the monitor itself 
+    ///fsm_actuator_coverage_collector.p_scoreboard = this;
   endfunction
   
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
   endfunction
   
-  function tranzactie_agent_actuator compute_result(tranzactie_senzor aux_tr_senzor);
-  tranzactie_venita_de_la_senzor = aux_tr_senzor.copy();
-  tranzactie_prezisa_de_referinta = new();
+  function transaction_agent_actuator compute_result(transaction_sensor aux_tr_sensor);
+  received_sensor_transaction = aux_tr_sensor.copy();
+  ref_predicted_transaction = new();
   if (enable ==1) begin
-	if (tranzactie_venita_de_la_senzor.temperature <= 22)
-      tranzactie_prezisa_de_referinta.Heat_i = 1;
+	if (received_sensor_transaction.temperature <= 22)
+      ref_predicted_transaction.Heat_i = 1;
     else
-      tranzactie_prezisa_de_referinta.Heat_i = 0;
+      ref_predicted_transaction.Heat_i = 0;
     
-    if (tranzactie_venita_de_la_senzor.temperature > 25)
-      tranzactie_prezisa_de_referinta.AC_i = 1;
+    if (received_sensor_transaction.temperature > 25)
+      ref_predicted_transaction.AC_i = 1;
     else
-      if (tranzactie_venita_de_la_senzor.temperature <= 22)
-      	tranzactie_prezisa_de_referinta.AC_i = 0;
+      if (received_sensor_transaction.temperature <= 22)
+      	ref_predicted_transaction.AC_i = 0;
 		else
-			tranzactie_prezisa_de_referinta.AC_i = lista_tranzactii_ref[lista_tranzactii_ref.size()-1].AC_i;;
+			ref_predicted_transaction.AC_i = ref_transaction_list[ref_transaction_list.size()-1].AC_i;;
     
-    if (tranzactie_venita_de_la_senzor.humidity > 50)
-      tranzactie_prezisa_de_referinta.Dehumidifier_i = 1;
+    if (received_sensor_transaction.humidity > 50)
+      ref_predicted_transaction.Dehumidifier_i = 1;
     else
-      if (tranzactie_venita_de_la_senzor.humidity <= 35)
-      	tranzactie_prezisa_de_referinta.Dehumidifier_i = 0;
+      if (received_sensor_transaction.humidity <= 35)
+      	ref_predicted_transaction.Dehumidifier_i = 0;
 		else
-		tranzactie_prezisa_de_referinta.Dehumidifier_i = lista_tranzactii_ref[lista_tranzactii_ref.size()-1].Dehumidifier_i;
+		ref_predicted_transaction.Dehumidifier_i = ref_transaction_list[ref_transaction_list.size()-1].Dehumidifier_i;
     
-    if (tranzactie_venita_de_la_senzor.luminous_intensity > 700)
-      tranzactie_prezisa_de_referinta.Blinds_i = 1; // jaluzelele sunt inchise, trecerea luminii este oprita
+    if (received_sensor_transaction.luminous_intensity > 700)
+      ref_predicted_transaction.Blinds_i = 1; // blinds are closed, light is blocked
     else
-      if (tranzactie_venita_de_la_senzor.luminous_intensity <= 200 )
-      	tranzactie_prezisa_de_referinta.Blinds_i = 0; // jaluzelele sunt deschise, trecerea luminii este permisa
+      if (received_sensor_transaction.luminous_intensity <= 200 )
+      	ref_predicted_transaction.Blinds_i = 0; // blinds are open, light is let through
 		else
-		tranzactie_prezisa_de_referinta.Blinds_i = lista_tranzactii_ref[lista_tranzactii_ref.size()-1].Blinds_i;
+		ref_predicted_transaction.Blinds_i = ref_transaction_list[ref_transaction_list.size()-1].Blinds_i;
       end// if (enable == 1)
-        else//altfel (daca dispozitivul este oprit ,enable-ul fiind pe 0 pun actuatorii intr-o stare initiala
+        else//otherwise (if the device is off, i.e. enable is 0) put the actuators in their initial state
       begin
-        tranzactie_prezisa_de_referinta.Blinds_i = 0;
-        tranzactie_prezisa_de_referinta.Heat_i = 0;
-        tranzactie_prezisa_de_referinta.AC_i = 0;
-        tranzactie_prezisa_de_referinta.Dehumidifier_i = 0;
+        ref_predicted_transaction.Blinds_i = 0;
+        ref_predicted_transaction.Heat_i = 0;
+        ref_predicted_transaction.AC_i = 0;
+        ref_predicted_transaction.Dehumidifier_i = 0;
       end
 	  `ifdef DEBUG
-       `uvm_info("SCOREBOARD", $sformatf("s-a evaluat noua tranzactie cu informatiile"), UVM_LOW)
-       tranzactie_venita_de_la_senzor.afiseaza_informatia_tranzactiei();
-       `uvm_info("SCOREBOARD", $sformatf("tranzactia prezisa ar fi"), UVM_LOW)
-       tranzactie_prezisa_de_referinta.afiseaza_informatia_tranzactiei();
+       `uvm_info("SCOREBOARD", $sformatf("evaluated the new transaction with the following information"), UVM_LOW)
+       received_sensor_transaction.display_transaction_info();
+       `uvm_info("SCOREBOARD", $sformatf("the predicted transaction would be"), UVM_LOW)
+       ref_predicted_transaction.display_transaction_info();
      `endif
-	  return tranzactie_prezisa_de_referinta;
+	  return ref_predicted_transaction;
   endfunction
   
   
   
-  //fiecare port de analiza UVM are atasata o functie write; prefixul declarat la inceputul acestui fisier pentru fiecare port se ataseaza automat functiei write, obtinand denumirile de mai jos
-  //functiile write ale fiecarui port de date sunt apelate de componentele care pun date pe respectivul port (a se vedea fisierele unde sunt declarati agentii); aici, respectivele functii sunt implementate, pentru ca scoreboardul sa stie cum sa reactioneze atunci cand primeste date pe fiecare din porturi
-  function void write_senzor(input tranzactie_senzor tranzactie_noua_senzor);  
-    `uvm_info("SCOREBOARD", $sformatf("S-a primit de la agentul senzor tranzactia cu informatia:\n"), UVM_LOW)
-    tranzactie_noua_senzor.afiseaza_informatia_tranzactiei();
-   // if ((enable == 1 && posedge_for_enable_detected == 0) || negedge_for_enable_detected == 1) // se accepta doar datele primite in starea START, nu si un starea OFF; de asemenea, deoarece datele se citesc cu un tact intarziere de monitorul agentului, se accepta si citirea pe negedge de enable 
-    $display($sformatf("cand s-au primit date de la senzori, enable a fost %d",enable));
+  //every UVM analysis imp port has a write function attached; the suffix declared at the top of this file for each port is automatically appended to the write function name, giving the names below
+  //the write functions of each data port are called by the components that put data on that port (see the files where the agents are declared); here these functions are implemented, so the scoreboard knows how to react when it receives data on each port
+  function void write_sensor(input transaction_sensor new_sensor_transaction);  
+    `uvm_info("SCOREBOARD", $sformatf("Received from the sensor agent the transaction with the following information:\n"), UVM_LOW)
+    new_sensor_transaction.display_transaction_info();
+   // if ((enable == 1 && posedge_for_enable_detected == 0) || negedge_for_enable_detected == 1) // only data received in the START state is accepted, not in the OFF state; also, since the agent's monitor reads data with one clock cycle of delay, reading on the enable negedge is accepted too 
+    $display($sformatf("when the sensor data was received, enable was %d",enable));
     
-	    tranzactie_venita_de_la_senzor = new();
-        tranzactie_venita_de_la_senzor = tranzactie_noua_senzor.copy();
-		tranzactie_calculata_de_ref = compute_result(tranzactie_venita_de_la_senzor);
-		lista_tranzactii_ref.push_back(tranzactie_calculata_de_ref);
+	    received_sensor_transaction = new();
+        received_sensor_transaction = new_sensor_transaction.copy();
+		ref_computed_transaction = compute_result(received_sensor_transaction);
+		ref_transaction_list.push_back(ref_computed_transaction);
 		`ifdef DEBUG
-		$display("lista_tranzactii_ref: ");
-	foreach (lista_tranzactii_ref[i])	
-    lista_tranzactii_ref[i].afiseaza_informatia_tranzactiei();
+		$display("ref_transaction_list: ");
+	foreach (ref_transaction_list[i])	
+    ref_transaction_list[i].display_transaction_info();
       
       `endif
       
-  endfunction : write_senzor
+  endfunction : write_sensor
   
-  function void write_buton(input tranzactie_agent_buton tranzactie_noua_buton);  
-    `uvm_info("SCOREBOARD", $sformatf("S-a primit de la agentul buton tranzactia cu informatia:\n"), UVM_LOW)
-    tranzactie_noua_buton.afiseaza_informatia_tranzactiei_agent_buton();
+  function void write_button(input transaction_agent_button new_button_transaction);  
+    `uvm_info("SCOREBOARD", $sformatf("Received from the button agent the transaction with the following information:\n"), UVM_LOW)
+    new_button_transaction.display_button_transaction_info();
     `ifdef DEBUG
-      $display("tranzactia prezisa de referinta este");
-      tranzactie_prezisa_de_referinta.afiseaza_informatia_tranzactiei();
+      $display("the transaction predicted by the reference model is");
+      ref_predicted_transaction.display_transaction_info();
     `endif
     
-   enable = tranzactie_noua_buton.enable;
-   if (enable == 0) begin //daca enable s-a pus pe 0, valorile actuatorilor sunt cele implicite
-   lista_tranzactii_ref.push_back(tranzactie_initiala_actuator);
+   enable = new_button_transaction.enable;
+   if (enable == 0) begin //if enable went to 0, the actuators take their default values
+   ref_transaction_list.push_back(initial_actuator_transaction);
    
    end
-  endfunction : write_buton
+  endfunction : write_button
   
-  //deoarece pe portul "port_pentru_datele_de_laActuator" se primesc datele de la iesirea DUT-ului; inseamna ca atunci cand ajung date pe acest port deja am primit si datele de la diferitii agenti activi care stimuleaza intrarile DUT-ului; 
-  function void write_actuator(input tranzactie_agent_actuator tranzactie_noua_actuator);
+  //the "actuator_data_port" receives data from the DUT output; this means that when data arrives on this port, we have already received the data from the active agents that stimulate the DUT inputs; 
+  function void write_actuator(input transaction_agent_actuator new_actuator_transaction);
     
-    //tot timpul creem un nou obiect (declarat la inceputul fisierului) inainte de a trimite datele la comparator. Altfel, daca am lucra cu pointerul tranzactie_noua_actuator, valoarea de la adresa acestora ar putea fi schimbata la urmatoarea tranzactie si astfel s-ar pierde datele de la tranzactia precedenta, comparatia fiind viciata
-	tranzactie_de_la_dut = new();
-	tranzactie_de_la_dut = tranzactie_noua_actuator.copy();
+    //always create a new object (declared at the top of the file) before sending the data to the comparator. Otherwise, if we worked with the new_actuator_transaction handle, the value at its address could be overwritten by the next transaction, losing the data of the previous transaction and invalidating the comparison
+	dut_transaction = new();
+	dut_transaction = new_actuator_transaction.copy();
 	
     
 	  fork
-      verifica_corespondenta_datelor(tranzactie_de_la_dut);
+      check_data_match(dut_transaction);
     join_none
     
       
   endfunction : write_actuator
   
           
-  function verifica_corespondenta_datelor(tranzactie_agent_actuator tranzactie_noua_actuatorr);
-  int gasit = 0;
-  $display("1. am ajuns la checking");
-     foreach (lista_tranzactii_ref[i])
-     if (tranzactie_noua_actuatorr.compare(lista_tranzactii_ref[i]) ==1)//atentie! se foloseste numele "compare" pentru a apela functia do_compare declarata in clasa "tranzactie_semafoare";.
-	 gasit = 1;
+  function check_data_match(transaction_agent_actuator actuator_transaction_to_check);
+  int found = 0;
+  $display("1. reached checking");
+     foreach (ref_transaction_list[i])
+     if (actuator_transaction_to_check.compare(ref_transaction_list[i]) ==1)//note! the name "compare" is used to call the do_compare function declared in the transaction class
+	 found = 1;
 	 
-	 if (gasit == 0)
+	 if (found == 0)
       begin
-        `uvm_error("SCOREBOARD", $sformatf(" datele generate de modelul de referinta nu se potrivesc cu datele venite de la DUT.\n") )
-        $display("Datele de la DUT:\n");
-        tranzactie_noua_actuatorr.afiseaza_informatia_tranzactiei(); 
+        `uvm_error("SCOREBOARD", $sformatf(" the data generated by the reference model does not match the data coming from the DUT.\n") )
+        $display("DUT data:\n");
+        actuator_transaction_to_check.display_transaction_info(); 
         
       end
 	  `ifdef DEBUG
     else
 	begin
-      `uvm_info("SCOREBOARD", $sformatf("DUT-ul a functionat la fel cu mediul de verificare, fiind evaluata tranzactia" ), UVM_LOW)
-	  tranzactie_noua_actuatorr.afiseaza_informatia_tranzactiei();
+      `uvm_info("SCOREBOARD", $sformatf("The DUT behaved the same as the verification environment for the evaluated transaction" ), UVM_LOW)
+	  actuator_transaction_to_check.display_transaction_info();
     end
 	`endif
-	while (lista_tranzactii_ref.size()>2) //alegem un numar (in acest caz 2) care reprezinta maximul de tranzctii procesate de referinta pana cand se preia si raspunsul DUT-ului
-		lista_tranzactii_ref.pop_front();
+	while (ref_transaction_list.size()>2) //choose a number (here 2) representing the maximum number of transactions processed by the reference model before the DUT response is also collected
+		ref_transaction_list.pop_front();
   endfunction
 endclass
 `endif

@@ -1,11 +1,11 @@
 // Code your design here
 //---------------------------------------------------------------------------------------
-// Universitatea Transilvania din Brasov
-// Proiect     : Testarea echipamentelor electronice
-// Autor       : Pascu Marius
-// Data        : 24.03.2021
+// Transilvania University of Brasov
+// Project     : Testing of electronic equipment
+// Author      : Pascu Marius
+// Date        : 24.03.2021
 //---------------------------------------------------------------------------------------
-// Descriere   : Implementarea unui control ambiental
+// Description : Implementation of an ambient control unit
 //---------------------------------------------------------------------------------------
 import uvm_pkg::*;
 // create module
@@ -13,7 +13,7 @@ module ambient (clk_i, reset_n, enable_i, temperature_i, humidity_i, luminous_in
 parameter DATA_WIDTH = 6;
 // input control signals
 input                  clk_i               ; // Clock signal
-input                  reset_n             ; // Asynchronous reset, activ low
+input                  reset_n             ; // Asynchronous reset, active low
 input                  enable_i            ; // Enable signal
 // input values 4 bits
   input  [DATA_WIDTH-1:0]  temperature_i       ; // Temperature data, 6 bits
@@ -96,7 +96,7 @@ always@(posedge clk_i)
 always@(posedge clk_i)
 begin
   if(reset_n || state == OFF||~enable_i)          
-    data_temp <= 'd23;//23 este o valoare neutra care nu porneste nici elementul de incalzire nici aparatul de AC
+    data_temp <= 'd23;//23 is a neutral value that turns on neither the heating element nor the AC unit
   else
       if(state == LOAD)     
         data_temp <= temperature_i[DATA_WIDTH-1:0];
@@ -127,7 +127,7 @@ always@(posedge clk_i)
 begin
   if(state == CONTROL && enable_i)
 	begin
-      if(data_temp <= 'b10110) //22 grade 
+      if(data_temp <= 'b10110) //22 degrees 
 			heat_o <= 'b1;else
               if(data_temp > 'b10110) // 22 
 			heat_o <= 'b0;
@@ -164,7 +164,7 @@ begin
               if(data_lumin <= 'b11001000)  // <=200
                 begin
 		        	blinds_o <= 'b0;
-                    $display("ceeee?");
+                    $display("whaaat?");
                 end
 	end
 end

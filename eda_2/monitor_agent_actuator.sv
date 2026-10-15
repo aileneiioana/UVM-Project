@@ -1,49 +1,49 @@
 `ifndef __monitor_agent_actuator
 `define __monitor_agent_actuator
-//`include "tranzactie_semafoare.sv"
+//`include "transaction_traffic_lights.sv"
 
 class monitor_agent_actuator extends uvm_monitor;
   
-  //monitorul se adauga in baza de date UVM
+  //register the monitor in the UVM factory
   `uvm_component_utils (monitor_agent_actuator) 
   
-  //se declara colectorul de coverage care va inregistra valorile semnalelor de pe interfata citite de monitor
-  coverage_agent_actuator coverage_actuator_inst; //colector_coverage_semafoare;
+  //declare the coverage collector that will record the values of the interface signals read by the monitor
+  coverage_agent_actuator coverage_actuator_inst; //coverage_collector_traffic_lights;
   
-  //este creat portul prin care monitorul trimite spre exterior (la noi, informatia este accesata de scoreboard), prin intermediul agentului, tranzactiile extrase din traficul de pe interfata
-  uvm_analysis_port #(tranzactie_agent_actuator) port_date_monitor_actuator;
+  //create the port through which the monitor sends out (in our case to the scoreboard), via the agent, the transactions extracted from the interface traffic
+  uvm_analysis_port #(transaction_agent_actuator) monitor_actuator_data_port;
   
-  //declaratia interfetei de unde monitorul isi colecteaza datele
-  virtual actuator_interface_dut interfata_monitor_actuator;
+  //declaration of the interface from which the monitor collects its data
+  virtual actuator_interface_dut monitor_actuator_intf;
   
-  tranzactie_agent_actuator starea_preluata_a_actuatorului, aux_tr_actuator;
+  transaction_agent_actuator sampled_actuator_state, aux_tr_actuator;
   
-  //constructorul clasei
+  //class constructor
   function new(string name = "monitor_agent_actuator", uvm_component parent = null);
     
-    //prima data se apeleaza constructorul clasei parinte
+    //first call the parent class constructor
     super.new(name, parent);
     
-    //se creeaza portul prin care monitorul trimite in exterior, prin intermediul agentului, datele pe care le-a cules din traficul de pe interfata
-    port_date_monitor_actuator = new("port_date_monitor_actuator",this);
+    //create the port through which the monitor sends out, via the agent, the data it collected from the interface traffic
+    monitor_actuator_data_port = new("monitor_actuator_data_port",this);
     
-    //se creeaza colectorul de coverage (la creare, se apeleaza constructorul colectorului de coverage)
+    //create the coverage collector (on creation, the coverage collector's constructor is called)
    coverage_actuator_inst = coverage_agent_actuator::type_id::create ("coverage_actuator_inst", this);
     
     
-    //se creeaza obiectul (tranzactia) in care se vor retine datele colectate de pe interfata la fiecare tact de ceas
-    starea_preluata_a_actuatorului = tranzactie_agent_actuator::type_id::create("date_noi");
+    //create the object (transaction) that will hold the data collected from the interface on every clock cycle
+    sampled_actuator_state = transaction_agent_actuator::type_id::create("new_data");
     
-    aux_tr_actuator = tranzactie_agent_actuator::type_id::create("datee_noi"); // folosim acest obiect de fiecare data cand transmitem datele pe portul de write pentru a nu lucra cu valoarea pointerului starea_preluata_a_actuatorului care se poate schimba pana cand aceasta este citita de catre scoreboard
+    aux_tr_actuator = transaction_agent_actuator::type_id::create("new_data_copy"); // we use this object every time we send data on the write port, so that we don't work with the sampled_actuator_state handle, whose contents may change before the scoreboard reads it
   endfunction
   
   
-  //se preia din baza de date interfata la care se va conecta monitorul pentru a citi date, si se "leaga" la interfata pe care deja monitorul o contine
+  //get from the database the interface the monitor will connect to in order to read data, and bind it to the interface handle the monitor already contains
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
     
-    if (!uvm_config_db#(virtual actuator_interface_dut)::get(this, "", "actuator_interface_dut", interfata_monitor_actuator))
-      `uvm_fatal("MONITOR_AGENT_ACTUATOR", "Nu s-a putut accesa interfata monitorului")
+    if (!uvm_config_db#(virtual actuator_interface_dut)::get(this, "", "actuator_interface_dut", monitor_actuator_intf))
+      `uvm_fatal("MONITOR_AGENT_ACTUATOR", "Could not access the monitor interface")
   endfunction
         
   
@@ -51,7 +51,7 @@ class monitor_agent_actuator extends uvm_monitor;
   virtual function void connect_phase (uvm_phase phase);
     super.connect_phase(phase);
     
-    //in faza UVM "connect", se face conexiunea intre pointerul catre monitor din instanta colectorului de coverage a acestui monitor si monitorul insusi 
+    //in the UVM "connect" phase, the monitor handle inside this monitor's coverage collector instance is connected to the monitor itself 
 	coverage_actuator_inst.p_monitor = this;
     
   endfunction
@@ -61,27 +61,27 @@ class monitor_agent_actuator extends uvm_monitor;
     
     forever begin
       
-      //preluarea datelor de pe interfata se face la fiecare front negativ de ceas
-      @(negedge interfata_monitor_actuator.clk_i);
+      //data is sampled from the interface on every falling clock edge
+      @(negedge monitor_actuator_intf.clk_i);
       
-      //intarzii citirea datelor cu un tact, sa nu citesc iesirile DUT-ului inainte ca acesta sa nu primeasca valori pe intrari
-     // repeat(2)@(negedge interfata_monitor_actuator.clk);
+      //delay reading the data by one clock cycle, so as not to read the DUT outputs before it has received values on its inputs
+     // repeat(2)@(negedge monitor_actuator_intf.clk);
       
       
-      //preiau datele de pe interfata de iesire a DUT-ului (interfata_semafoare)
-    starea_preluata_a_actuatorului.Heat_i =  interfata_monitor_actuator.heat_o;
-      starea_preluata_a_actuatorului.AC_i =  interfata_monitor_actuator.AC_o;
-      starea_preluata_a_actuatorului.Blinds_i =  interfata_monitor_actuator.blinds_o;
-      starea_preluata_a_actuatorului.Dehumidifier_i =  interfata_monitor_actuator.dehumidifier_o;
+      //sample the data from the DUT output interface
+    sampled_actuator_state.Heat_i =  monitor_actuator_intf.heat_o;
+      sampled_actuator_state.AC_i =  monitor_actuator_intf.AC_o;
+      sampled_actuator_state.Blinds_i =  monitor_actuator_intf.blinds_o;
+      sampled_actuator_state.Dehumidifier_i =  monitor_actuator_intf.dehumidifier_o;
       
      
-      aux_tr_actuator = starea_preluata_a_actuatorului.copy();//se inregistreaza valorile de pe cele doua semnale de iesire
+      aux_tr_actuator = sampled_actuator_state.copy();//sample the values of the output signals for coverage
       coverage_actuator_inst.actuator_cg.sample();
       
-      //tranzactia cuprinzand datele culese de pe interfata se pune la dispozitie pe portul monitorului, daca modulul nu este in reset
-      port_date_monitor_actuator.write( aux_tr_actuator); 
-    //  `uvm_info("MONITOR_AGENT_SEMAFOARE", $sformatf("S-a receptionat tranzactia cu informatiile:"), UVM_NONE)
-      //starea_preluata_a_semafoarelor.afiseaza_informatia_tranzactiei();
+      //the transaction holding the data collected from the interface is made available on the monitor's port
+      monitor_actuator_data_port.write( aux_tr_actuator); 
+    //  `uvm_info("MONITOR_AGENT_TRAFFIC_LIGHTS", $sformatf("Received the transaction with the following information:"), UVM_NONE)
+      //sampled_traffic_lights_state.display_transaction_info();
     end//forever begin
   endtask
 endclass: monitor_agent_actuator

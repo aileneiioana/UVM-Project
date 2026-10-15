@@ -1,0 +1,36 @@
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+`ifndef __rename_coverage_collector
+`define __rename_coverage_collector
+
+//this class is used to see how many input combinations were sent to the DUT; it is only a template and will probably be modified, since in general we are not interested in hitting every possible input combination of a DUT in simulation
+class coverage_rename extends uvm_component;
+  
+  //register the component in the factory
+  `uvm_component_utils(coverage_rename)
+  
+  //declare the handle to the monitor that provides the data on which coverage is measured
+  monitor_rename p_monitor;
+  
+  covergroup rename_states_cg;
+    option.per_instance = 1;
+    coverpoint p_monitor.sampled_rename_state.addr{
+        bins min_addr = {0};
+        bins random_addr = {[1:3]};
+      	bins max_addr = {4};
+    }
+    coverpoint p_monitor.sampled_rename_state.irq;
+  endgroup
+  
+  //create the covergroup; WARNING! Without the function below the covergroup could never sample data, because so far it has only been declared, not created
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+    $cast(p_monitor, parent);//with the use of $cast, type check will occur during runtime
+    rename_states_cg = new();
+  endfunction
+  
+endclass
+
+
+`endif

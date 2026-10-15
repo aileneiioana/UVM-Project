@@ -1,33 +1,33 @@
 `include "uvm_macros.svh"
 import uvm_pkg::*;
 
-`define PERIOADA_CEASULUI 10
+`define CLOCK_PERIOD 10
 
 
-`ifndef 10//numarul minim de tranzactii care se vor genera pe interfata de intrare
-  `define 10 10
+`ifndef MIN_NUM_TRANSACTIONS //minimum number of transactions that will be generated on the input interface
+  `define MIN_NUM_TRANSACTIONS 10
 `endif
 
-//`define DEBUG      //parametru folosit pentru a activa mesaje pe care noi le stabilim ca ar fi necesare doar la debug
+//`define DEBUG      //macro used to enable messages that we consider necessary only for debugging
 
-//stabilirea semnificatiei unitatilor de timp din simulator
+//set the meaning of the simulator time units
 `timescale 1ns/1ns
 
-//includerea fisierelor la care modulul de top trebuie sa aiba acces
+//include the files the top module needs access to
 
 //`include "actuator_interface.sv"
 //`include "button_interface.sv"
 //`include "sensor_interface_dut.sv"
-//`include "test_de_baza_ambient.sv"
-//`include "test_valori_limita.sv"
-//`include "test_mentinerea_temperaturii.sv"
-//`include "test_mentinerea_umiditatii.sv"
-//`include "test_val_intens_luminoasa.sv"
-//`include "test_functionalitati_senzori.sv"
-//`include "test_verificare_apasari_multiple_buton.sv"
-//`include "test_verificare_apasari_rapide_buton.sv"
-//`include "test_total_ambient.sv"
-//`include "test_apasari_buton_frecvente.sv"
+//`include "test_ambient_base.sv"
+//`include "test_limit_values.sv"
+//`include "test_temperature_regulation.sv"
+//`include "test_humidity_regulation.sv"
+//`include "test_light_intensity_values.sv"
+//`include "test_sensor_functionality.sv"
+//`include "test_multiple_button_presses.sv"
+//`include "test_fast_button_presses.sv"
+//`include "test_ambient_full.sv"
+//`include "test_frequent_button_presses.sv"
 
 
 // Code your testbench here
@@ -47,7 +47,7 @@ module top();
 	wire blinds;
 	wire ready;
   
-  //sunt create instantele interfetelor (in acest proiect sunt 2 agenti, deci vor fi 2 interfete); se leaga semnalele interfetelor de semnalele din modulul de top
+  //create the interface instances (one per agent); the interface signals are connected to the signals of the top module
   sensor_interface_dut intf_sensor();
   assign intf_sensor.clk_i                = clk;
   assign reset_n = intf_sensor.reset_n;
@@ -71,32 +71,32 @@ module top();
   
   
   initial begin
-    //cele 2 linii de mai jos permit vizualizarea formelor de unda (pentru a vizualiza formele de unda trebuie bifata si optiunea "Open EPWave after run" din sectiunea "Tools & Simulators" aflata in stanga paginii)
+    //the 2 lines below enable waveform viewing (to view waveforms, the "Open EPWave after run" option in the "Tools & Simulators" section on the left of the page must also be checked)
     $dumpfile("dump.vcd");
     $dumpvars;
-    //se genereaza ceasul
+    //generate the clock
 	clk = 1;
-	forever #(`PERIOADA_CEASULUI/2)  clk <= ~clk;
+	forever #(`CLOCK_PERIOD/2)  clk <= ~clk;
 	end
   
    initial
   	begin
-      //se salveaza instantele interfetelor in baza de date UVM
+      //store the interface instances in the UVM database
       uvm_config_db#(virtual sensor_interface_dut)::set(null, "*", "sensor_interface_dut", intf_sensor);
       uvm_config_db#(virtual button_interface_dut)::set(null, "*", "button_interface_dut", intf_button);
       uvm_config_db#(virtual actuator_interface_dut)::set(null, "*", "actuator_interface_dut", intf_actuator);
 
-      //se ruleaza testul dorit
-      run_test("test_total_ambient");
+      //run the desired test
+      run_test("test_ambient_full");
   	end
   
-//  initial //in simulatorul gratuit nu se pot afisa mai mult de 5000 de linii de mesaje
+//  initial //the free simulator cannot print more than 5000 lines of messages
 //    begin
 //      #2000
 //      $finish();
 //    end
 
-  // se instantiaza DUT-ul, facandu-se legaturile intre semnalele din modulul de top si semnalele acestuia
+  // instantiate the DUT, connecting the signals of the top module to its ports
   ambient DUT(
 	.clk_i                 (clk         ),
 	.reset_n               (reset_n     ),
