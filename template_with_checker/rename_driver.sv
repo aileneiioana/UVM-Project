@@ -5,16 +5,16 @@ import uvm_pkg::*;
 `define __rename_driver
 
 //the driver takes "transaction" items and sends them to the DUT according to the communication protocol of the interface
-class driver_agent_rename extends uvm_driver #(transaction_rename);
+class rename_driver extends uvm_driver #(rename_transaction);
   
   //register the driver in the UVM factory
-  `uvm_component_utils (driver_agent_rename)
+  `uvm_component_utils (rename_driver)
   
   //declare the interface on which the driver will send the data
   virtual rename_interface_dut driver_rename_intf;
   
   //class constructor
-  function new(string name = "driver_agent_rename", uvm_component parent = null);
+  function new(string name = "rename_driver", uvm_component parent = null);
     //call the parent class constructor
     super.new(name, parent);
   endfunction
@@ -39,7 +39,7 @@ class driver_agent_rename extends uvm_driver #(transaction_rename);
     end
   endtask
   
-  task send_transaction(transaction_rename info_to_send);
+  task send_transaction(rename_transaction info_to_send);
     $timeformat(-9, 2, " ns", 20);//when time is printed in the console with %t, it is shown in nanoseconds (-9), with 2 decimals, followed by the abbreviation " ns"
     
     driver_rename_intf.valid = 'b1;

@@ -2,7 +2,7 @@
 
 SystemVerilog/UVM environment template used in the **UVM Verification lab** of the M.Sc. program *Electronic Systems and Integrated Communications* at **Transilvania University of Brașov**, where I taught the lab sessions (2nd semester, 2024 and 2025).
 
-The template gives students a working two-agent UVM skeleton around a small DUT. The scoreboard contains a complete, commented **checker** as a worked example; other parts are **intentionally incomplete**, and students finish the agents and the functional coverage themselves.
+The template gives students a working two-agent UVM skeleton around a small DUT. The scoreboard contains a complete, commented **data checker** as a worked example; other parts are **intentionally incomplete**, and students finish the agents and the functional coverage themselves.
 
 > **Student guide:** [`UVM_Template_Student_Guide.docx`](UVM_Template_Student_Guide.docx) explains how the template is built (with diagrams) and how to adapt it to your own DUT.
 
@@ -25,9 +25,9 @@ top (testbench.sv)
  ├─ my_dut
  └─ test_example
      └─ verification_env
-         ├─ apb_agent        (active)  driver, monitor, sequencer, coverage_apb
-         ├─ rename_agent     (active)  driver, monitor, sequencer, coverage_rename
-         └─ scoreboard                 collects transactions from both monitors; checker in check_phase
+         ├─ apb_agent        (active)  driver, monitor, sequencer, apb_coverage
+         ├─ rename_agent     (active)  driver, monitor, sequencer, rename_coverage
+         └─ scoreboard                 one FIFO per monitor; data checker pulls and compares
 ```
 
 | File | Role |
@@ -35,31 +35,30 @@ top (testbench.sv)
 | `design.sv` | DUT |
 | `testbench.sv` | `top` module: clock, interface instances, DUT instance, `run_test()` |
 | `apb_interface_dut.sv`, `rename_interface_dut.sv` | Interfaces |
-| `transaction_apb.sv`, `transaction_rename.sv` | Sequence items |
+| `apb_transaction.sv`, `rename_transaction.sv` | Sequence items |
 | `apb_sequence.sv`, `rename_sequence.sv` | Random sequences |
-| `driver_agent_apb.sv`, `driver_agent_rename.sv` | Drivers |
-| `monitor_apb.sv`, `monitor_rename.sv` | Monitors |
-| `coverage_apb.sv`, `coverage_rename.sv` | Coverage collectors |
+| `apb_driver.sv`, `rename_driver.sv` | Drivers |
+| `apb_monitor.sv`, `rename_monitor.sv` | Monitors |
+| `apb_coverage.sv`, `rename_coverage.sv` | Coverage collectors |
 | `apb_agent.sv`, `rename_agent.sv` | Agents |
-| `scoreboard.sv` | Scoreboard with the checker (worked example) |
+| `scoreboard.sv` | Scoreboard with the data checker (worked example) |
 | `verification_env.sv` | Environment |
 | `test_example.sv` | Example test: reset, both sequences in parallel, coverage and error report |
 
-## The checker (worked example)
+## The data checker (worked example)
 
-A checker compares what the DUT actually did with what it should have done according to its specification. In `scoreboard.sv`:
+A data checker compares the data seen on one interface with the data expected from another one. In this template the test sends **the same list of addresses on both interfaces**, and `scoreboard.sv` checks that they arrive identical:
 
-1. The `write_apb` / `write_rename` functions store every transaction received from the monitors, together with the simulation time at which it was sampled.
-2. In `check_phase` (after the run phase), each rename transaction is paired with the APB access sampled in the **same clock cycle**: both monitors sample on the falling edge of the same clock, so equal time stamps mean the same cycle.
-3. A small reference model computes the expected `irq` from the specification, and two checks compare it with the `irq` the DUT produced:
-   - **checker 1**: `irq` asserted when it should not be;
-   - **checker 2**: `irq` expected but not asserted.
-4. A summary reports the number of checks and errors. If nothing was checked, this is reported as an error, since a checker that checked nothing proves nothing.
+1. Each monitor writes its transactions to the scoreboard, where they are stored in a `uvm_tlm_analysis_fifo` (one FIFO per agent).
+2. In `run_phase`, the checker pulls one transaction from each FIFO with `get()` (blocking until one is available) and compares the addresses; a mismatch is reported with `` `uvm_error ``.
+3. In `check_phase`, it reports transactions left without a pair and prints a summary (`Checker summary: N checks, M errors`). If nothing was compared, this is reported as an error.
+
+In a real project, one FIFO holds what went **into** the DUT (expected data) and the other what came **out** of it (actual data).
 
 ## What students complete
 
 - **APB agent**: the driver implements a simplified handshake (`psel`, `penable`, `paddr`); students extend it towards the APB protocol.
-- **Functional coverage**: `coverage_apb.sv` and `coverage_rename.sv` have one bin per address value (0..7) and, for rename, `irq` low and high, so the reported percentage is real. Students add crosses and bins that matter for their DUT (e.g. address match × `irq`).
+- **Functional coverage**: `apb_coverage.sv` has three bins (`min_addr` = 0, `medium_addr` = 1..6, `max_addr` = 7). The example test sends only addresses 1..6, so APB coverage is low (1 of 3 bins); students write stimulus that reaches the minimum and maximum. `rename_coverage.sv` has one bin per address and `irq` low and high. Students also add crosses that matter for their DUT.
 - **Adapting the `rename` agent**: the generic `rename` agent is a starting point that students rename and adapt to their own DUT interface.
 
 ## How to run
@@ -74,7 +73,7 @@ A checker compares what the DUT actually did with what it should have done accor
 
 ### Vivado simulator (xsim)
 
-Tested with Vivado 2025.2, which ships with UVM 1.2. From `template_with_checker/`:
+Vivado ships with UVM 1.2. From `template_with_checker/`:
 
 ```
 xvlog -sv -L uvm testbench.sv

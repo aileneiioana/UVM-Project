@@ -5,16 +5,16 @@ import uvm_pkg::*;
 `define __apb_driver
 
 //the driver takes "transaction" items and sends them to the DUT according to the communication protocol of the interface
-class driver_agent_apb extends uvm_driver #(transaction_apb);
+class apb_driver extends uvm_driver #(apb_transaction);
   
   //register the driver in the UVM factory
-  `uvm_component_utils (driver_agent_apb)
+  `uvm_component_utils (apb_driver)
   
   //declare the interface on which the driver will send the data
   virtual apb_interface_dut driver_apb_intf;
   
   //class constructor
-  function new(string name = "driver_agent_apb", uvm_component parent = null);
+  function new(string name = "apb_driver", uvm_component parent = null);
     //call the parent class constructor
     super.new(name, parent);
   endfunction
@@ -39,7 +39,7 @@ class driver_agent_apb extends uvm_driver #(transaction_apb);
     end
   endtask
   
-  task send_transaction(transaction_apb info_to_send);
+  task send_transaction(apb_transaction info_to_send);
     $timeformat(-9, 2, " ns", 20);//when time is printed in the console with %t, it is shown in nanoseconds (-9), with 2 decimals, followed by the abbreviation " ns"
     
     @(posedge driver_apb_intf.pclk);

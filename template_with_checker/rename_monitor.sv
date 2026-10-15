@@ -5,25 +5,25 @@ import uvm_pkg::*;
 `define __rename_monitor
 //`include "transaction_traffic_lights.sv"
 
-class monitor_rename extends uvm_monitor;
+class rename_monitor extends uvm_monitor;
   
   //register the monitor in the UVM factory
-  `uvm_component_utils (monitor_rename) 
+  `uvm_component_utils (rename_monitor) 
   
   //declare the coverage collector that will record the values of the interface signals read by the monitor
-  coverage_rename rename_coverage_collector; 
+  rename_coverage rename_coverage_collector; 
   
   //create the port through which the monitor sends out (in our case to the scoreboard), via the agent, the transactions extracted from the interface traffic
-  uvm_analysis_port #(transaction_rename) monitor_rename_data_port;
+  uvm_analysis_port #(rename_transaction) monitor_rename_data_port;
   
   //declaration of the interface from which the monitor collects its data
   //virtual rename_interface monitor_rename_intf;
   virtual rename_interface_dut monitor_rename_intf;
   
-  transaction_rename sampled_rename_state, aux_tr_rename;
+  rename_transaction sampled_rename_state, aux_tr_rename;
   
   //class constructor
-  function new(string name = "monitor_rename", uvm_component parent = null);
+  function new(string name = "rename_monitor", uvm_component parent = null);
     
     //first call the parent class constructor
     super.new(name, parent);
@@ -33,13 +33,13 @@ class monitor_rename extends uvm_monitor;
     
     //create the coverage collector (on creation, the coverage collector's constructor is called)
     
-    rename_coverage_collector = coverage_rename::type_id::create ("rename_coverage_collector", this);
+    rename_coverage_collector = rename_coverage::type_id::create ("rename_coverage_collector", this);
     
     
     //create the object (transaction) that will hold the data collected from the interface on every clock cycle
-    sampled_rename_state = transaction_rename::type_id::create("new_data");
+    sampled_rename_state = rename_transaction::type_id::create("new_data");
     
-    aux_tr_rename = transaction_rename::type_id::create("new_data_copy");
+    aux_tr_rename = rename_transaction::type_id::create("new_data_copy");
   endfunction
   
   
@@ -65,32 +65,29 @@ class monitor_rename extends uvm_monitor;
     super.run_phase(phase);
     
     forever begin
-      
-      //!!!!wait until the data is valid
-      wait(monitor_rename_intf.valid); 
-      //I want to sample valid_i only on falling clock edges
-      @(negedge monitor_rename_intf.clk); 
-      //sample the data from the DUT output interface
-      sampled_rename_state.addr = monitor_rename_intf.addr;
-      sampled_rename_state.irq = monitor_rename_intf.irq;
+      //sample on every falling clock edge, when the signals are stable
+      @(negedge monitor_rename_intf.clk);
+      //a transfer takes place only in the cycles where this condition is true; one sample per cycle = one transaction per transfer
+      if (monitor_rename_intf.valid) begin
+        //sample the data from the DUT output interface
+        sampled_rename_state.addr = monitor_rename_intf.addr;
+        sampled_rename_state.irq = monitor_rename_intf.irq;
 
-      aux_tr_rename = sampled_rename_state.copy();//I don't want to use the sampled_rename_state handle to send the data, because its contents change and the scoreboard would read different data 
-      
-       //the transaction holding the data collected from the interface is made available on the monitor's port
-      monitor_rename_data_port.write(aux_tr_rename); 
-      `uvm_info("MONITOR_RENAME", $sformatf("Received the transaction with the following information:"), UVM_NONE)
-      aux_tr_rename.display_transaction_info();
-	  
-      //sample the values of the output signals for coverage
-      rename_coverage_collector.rename_states_cg.sample();
-      
-	  @(negedge monitor_rename_intf.clk); //this wait was added because sometimes one transaction was interpreted as two identical back-to-back transactions (valid was read as 1 on two consecutive clock edges); in the current implementation two transactions cannot come back to back
-      
-      
+        aux_tr_rename = sampled_rename_state.copy();//I don't want to use the sampled_rename_state handle to send the data, because its contents change and the scoreboard would read different data 
+
+         //the transaction holding the data collected from the interface is made available on the monitor's port
+        monitor_rename_data_port.write(aux_tr_rename); 
+        `uvm_info("MONITOR_RENAME", $sformatf("Received the transaction with the following information:"), UVM_NONE)
+        aux_tr_rename.display_transaction_info();
+
+        //sample the values of the output signals for coverage
+        rename_coverage_collector.rename_states_cg.sample();
+
+      end
     end//forever begin
   endtask
   
   
-endclass: monitor_rename
+endclass: rename_monitor
 
 `endif

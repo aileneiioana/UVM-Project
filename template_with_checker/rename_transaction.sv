@@ -5,10 +5,10 @@ import uvm_pkg::*;
 `define __rename_transaction
 
 //a transaction is the set of data transferred at a given moment on an interface
-class transaction_rename extends uvm_sequence_item;
+class rename_transaction extends uvm_sequence_item;
   
   //register the transaction component in the factory
-  `uvm_object_utils(transaction_rename)
+  `uvm_object_utils(rename_transaction)
   
   rand bit[2:0] addr;
        bit      irq; //output, so it is not rand
@@ -26,7 +26,7 @@ class transaction_rename extends uvm_sequence_item;
     $display("Address: %0h, IRQ: %b", addr, irq);
   endfunction
   
-  function transaction_rename copy();
+  function rename_transaction copy();
 	copy = new();
 	copy.addr = this.addr;
   copy.irq = this.irq;

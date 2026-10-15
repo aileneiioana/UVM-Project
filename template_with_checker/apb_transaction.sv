@@ -5,10 +5,10 @@ import uvm_pkg::*;
 `define __apb_transaction
 
 //a transaction is the set of data transferred at a given moment on an interface
-class transaction_apb extends uvm_sequence_item;
+class apb_transaction extends uvm_sequence_item;
   
   //register the transaction component in the factory
-  `uvm_object_utils(transaction_apb)
+  `uvm_object_utils(apb_transaction)
   
   rand bit[2:0] addr;
   
@@ -23,7 +23,7 @@ class transaction_apb extends uvm_sequence_item;
     $display("Address: %0h", addr);
   endfunction
   
-  function transaction_apb copy();
+  function apb_transaction copy();
 	copy = new();
 	copy.addr = this.addr;
 	return copy;

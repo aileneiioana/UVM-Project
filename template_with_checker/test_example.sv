@@ -24,6 +24,9 @@ class test_example extends uvm_test;
   //instantiate the sequences used by button_agent and sensor_agent
   rename_sequence rename_seq;
   apb_sequence apb_seq;
+
+  //the same addresses are sent on both interfaces, so the data checker in the scoreboard can compare them one by one
+  bit [2:0] addr_list[$];
   
   
   //declare the virtual interfaces of the verification environment; they will later be bound to the real interfaces instantiated in the top module
@@ -60,6 +63,12 @@ class test_example extends uvm_test;
 
     rename_seq = rename_sequence::type_id::create("rename_seq");
     rename_seq.randomize();
+
+    //10 to 15 addresses between 1 and 6: the minimum (0) and maximum (7) addresses are never sent,
+    //so only bin medium_addr of the APB coverage is hit (1 of 3 bins); extend the range to reach min_addr and max_addr
+    repeat ($urandom_range(10, 15)) addr_list.push_back($urandom_range(1, 6));
+    apb_seq.addr_list    = addr_list;
+    rename_seq.addr_list = addr_list;
     
   endfunction
   
@@ -82,7 +91,7 @@ class test_example extends uvm_test;
       `ifdef DEBUG
         $display("starting sequence: apb_seq for the active agent apb_agent");
       `endif;
-        apb_seq.start(verif_env.apb_agent_inst.sequencer_agent_apb_inst0);
+        apb_seq.start(verif_env.apb_agent_inst.apb_sequencer_inst0);
       `ifdef DEBUG
         $display("finished running the sequence for the active agent apb_agent");
       `endif;
@@ -94,7 +103,7 @@ class test_example extends uvm_test;
       `ifdef DEBUG
         $display("starting sequence: rename_seq for the active agent rename_agent");
       `endif;
-        rename_seq.start(verif_env.rename_agent_inst.sequencer_agent_rename_inst0);
+        rename_seq.start(verif_env.rename_agent_inst.rename_sequencer_inst0);
       `ifdef DEBUG
         $display("finished running the sequence for the active agent rename_agent");
       `endif;
@@ -136,8 +145,8 @@ class test_example extends uvm_test;
   virtual function void report_phase(uvm_phase phase);
     uvm_report_server svr;
     super.report_phase(phase);
-    $display("STDOUT: Coverage obtained for APB: %3.2f%% ",  		   verif_env.apb_agent_inst.monitor_apb_inst0.apb_coverage_collector.apb_states_cg.get_inst_coverage());
-    $display("STDOUT: Coverage obtained for RENAME: %3.2f%% ", verif_env.rename_agent_inst.monitor_rename_inst0.rename_coverage_collector.rename_states_cg.get_inst_coverage());
+    $display("STDOUT: Coverage obtained for APB: %3.2f%% ",  		   verif_env.apb_agent_inst.apb_monitor_inst0.apb_coverage_collector.apb_states_cg.get_inst_coverage());
+    $display("STDOUT: Coverage obtained for RENAME: %3.2f%% ", verif_env.rename_agent_inst.rename_monitor_inst0.rename_coverage_collector.rename_states_cg.get_inst_coverage());
 
       
     svr = uvm_report_server::get_server();
