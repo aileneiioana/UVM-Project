@@ -137,6 +137,7 @@ class test_example extends uvm_test;
     uvm_report_server svr;
     super.report_phase(phase);
     $display("STDOUT: Coverage obtained for APB: %3.2f%% ",  		   verif_env.apb_agent_inst.monitor_apb_inst0.apb_coverage_collector.apb_states_cg.get_inst_coverage());
+    $display("STDOUT: Coverage obtained for RENAME: %3.2f%% ", verif_env.rename_agent_inst.monitor_rename_inst0.rename_coverage_collector.rename_states_cg.get_inst_coverage());
 
       
     svr = uvm_report_server::get_server();

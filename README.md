@@ -4,6 +4,8 @@ SystemVerilog/UVM environment template used in the **UVM Verification lab** of t
 
 The template gives students a working two-agent UVM skeleton around a small DUT. The scoreboard contains a complete, commented **checker** as a worked example; other parts are **intentionally incomplete**, and students finish the agents and the functional coverage themselves.
 
+> **Student guide:** [`UVM_Template_Student_Guide.docx`](UVM_Template_Student_Guide.docx) explains how the template is built (with diagrams) and how to adapt it to your own DUT.
+
 > The material was originally written in Romanian for Romanian-speaking students; code, comments, identifiers and file names have since been translated to English.
 
 ## The DUT
@@ -57,7 +59,7 @@ A checker compares what the DUT actually did with what it should have done accor
 ## What students complete
 
 - **APB agent**: the driver implements a simplified handshake (`psel`, `penable`, `paddr`); students extend it towards the APB protocol.
-- **Functional coverage**: the bins in `coverage_apb.sv` and `coverage_rename.sv` cover only part of the address range and include no crosses; students define meaningful bins and crosses (e.g. address match × `irq`).
+- **Functional coverage**: `coverage_apb.sv` and `coverage_rename.sv` have one bin per address value (0..7) and, for rename, `irq` low and high, so the reported percentage is real. Students add crosses and bins that matter for their DUT (e.g. address match × `irq`).
 - **Adapting the `rename` agent**: the generic `rename` agent is a starting point that students rename and adapt to their own DUT interface.
 
 ## How to run

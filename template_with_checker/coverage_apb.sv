@@ -15,10 +15,10 @@ class coverage_apb extends uvm_component;
   
   covergroup apb_states_cg;
     option.per_instance = 1;
-    coverpoint p_monitor.sampled_apb_state.addr{
-        bins min_addr = {0};
-        bins random_addr = {[1:3]};
-      	bins max_addr = {4};
+    //one bin per address value: paddr is 3 bits wide (0..7), so 8 bins in total;
+    //the coverage reported is the share of the 8 addresses that were actually seen on the bus
+    addr_cp: coverpoint p_monitor.sampled_apb_state.addr{
+        bins addr_value[] = {[0:7]};
     }
   endgroup
   

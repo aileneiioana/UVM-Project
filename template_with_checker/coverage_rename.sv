@@ -15,12 +15,15 @@ class coverage_rename extends uvm_component;
   
   covergroup rename_states_cg;
     option.per_instance = 1;
-    coverpoint p_monitor.sampled_rename_state.addr{
-        bins min_addr = {0};
-        bins random_addr = {[1:3]};
-      	bins max_addr = {4};
+    //one bin per address value: addr is 3 bits wide (0..7), so 8 bins in total
+    addr_cp: coverpoint p_monitor.sampled_rename_state.addr{
+        bins addr_value[] = {[0:7]};
     }
-    coverpoint p_monitor.sampled_rename_state.irq;
+    //irq must be seen both low and high; irq = 1 needs an APB access with the same address in the same cycle
+    irq_cp: coverpoint p_monitor.sampled_rename_state.irq{
+        bins irq_low  = {0};
+        bins irq_high = {1};
+    }
   endgroup
   
   //create the covergroup; WARNING! Without the function below the covergroup could never sample data, because so far it has only been declared, not created
