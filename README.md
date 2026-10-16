@@ -42,6 +42,4 @@ To run another test: `xsim top_sim -R -testplusarg UVM_TESTNAME=<test_class_name
 - UVM testbench architecture: env, agents, driver, monitor, sequencer
 - Transactions, sequences, and constrained-random stimulus
 - Analysis ports, TLM FIFOs and scoreboards
-- Functional coverage: covergroups, bins, and crosses
-
-> The material was originally written in Romanian for Romanian-speaking students; code, comments, identifiers and file names have since been translated to English.
+- Functional coverage: covergroups, bins, and crosses.
