@@ -1,55 +1,53 @@
-# UVM Verification – Lab Materials & Projects
+# Verificare UVM – template pentru exercițiile studenților
 
-SystemVerilog/UVM verification environments used in the **UVM Verification lab** of the M.Sc. program *Electronic Systems and Integrated Communications* at **Transilvania University of Brașov**, where I taught the lab sessions (2nd semester, 2024 and 2025).
+Template SystemVerilog/UVM folosit la **laboratorul de Verificare UVM** din programul de master *Sisteme Electronice și Comunicații Integrate* de la **Universitatea Transilvania din Brașov**, unde am predat laboratorul (semestrul 2, 2024 și 2025).
 
-The repository covers the full UVM flow, from a minimal single-agent APB environment up to a multi-agent environment with a reference model, functional coverage, and SVA assertions.
+Este un testbench UVM funcțional, cu două agente, în jurul unui DUT mic. Studenții păstrează structura, pun DUT-ul lor în locul celui existent și completează agentele, coverage-ul și checkerul.
 
-> Code comments and identifiers are in Romanian, as the material was written for Romanian-speaking students.
+> Pe acest branch (`main_romanian`) codul și numele fișierelor sunt în engleză, ca pe `main`; comentariile din cod și documentele sunt în română.
 
-## Contents
+## De aici începeți
 
-| Folder | What it is | Highlights |
-|---|---|---|
-| [`lab5/`](lab5) | Introductory APB lab | APB agent (driver, monitor, sequence), scoreboard, functional coverage, example test |
-| [`templete_cu_checker/`](templete_cu_checker) | Reusable environment template with a checker | APB agent plus a generic `*_rename` agent skeleton that students copy and adapt to their own DUT |
-| [`eda_2/`](eda_2) | Ambient-control environment (multi-agent) | 3 agents (sensor, button, actuator), scoreboard with reference model, coverage collectors, SVA assertions, 10 directed and constrained-random tests |
-| `Specificatie Inmultire matrici 2024.docx` / `.pdf` | Verification project specification | Team project (M.Sc., 2023–2024): systolic matrix multiplier with APB configuration and req/ack memory interfaces |
+| Document | Ce conține |
+| --- | --- |
+| [`Ghid_student_template_UVM.docx`](Ghid_student_template_UVM.docx) | Cum e construit template-ul (cu scheme), cei 10 pași ca să-l faceți al vostru și noțiuni de bază despre Git, APB și req/ack |
+| [`Ghid_de_utilizare_Vivado.docx`](Ghid_de_utilizare_Vivado.docx) | Cum creați proiectul în Vivado, rulați simularea și obțineți raportul de coverage. **Folosiți-l când rulați proiectul.** |
 
-## Environment architecture (`eda_2/`)
+## Ce conține repository-ul
+
+[`template_cu_checker/`](template_cu_checker): mediul UVM.
+
+- **DUT** (`design.sv`): `irq_o = psel_i && penable_i && valid_i && (paddr_i == addr_i)`
+- **Agente:** `apb_agent` și un agent generic `rename_agent` (înlocuiți `rename` cu numele interfeței voastre)
+- **Scoreboard:** câte un FIFO pentru fiecare agent și un checker de date care le compară
+- **Top:** `testbench.sv` include toate celelalte fișiere; testul implicit este `test_example`
+
+Exemple din anii anteriori (cod mai vechi, cu nume în română):
+
+- [`exemplu_proiect_ttvf_senzori/`](exemplu_proiect_ttvf_senzori): un proiect complet de student (senzori, buton, actuator), cu mai multe agente și teste;
+- [`exemplu_documentatie_proiect/`](exemplu_documentatie_proiect): un exemplu de specificație (`Specificatie Inmultire matrici 2024`, .docx și .pdf);
+- [`templete_cu_checker_2025/`](templete_cu_checker_2025): versiunea din 2025 a template-ului, înainte de reorganizare.
+
+## Rezultatul așteptat pentru template-ul neschimbat
+
+- `Checker summary: N checks, 0 errors` și `TEST PASS`
+- Coverage APB **33.33%**: testul trimite doar adresele 1–6, deci bin-urile `min_addr` și `max_addr` rămân goale. Atingerea lor face parte din exercițiu.
+
+## Rulare din linia de comandă (Vivado xsim)
+
+Din folderul `template_cu_checker/`:
 
 ```
-top
- └─ test (test_*.sv)
-     └─ mediu_verificare            (UVM env)
-         ├─ agent_senzor            temperature / humidity / luminous intensity stimulus
-         │   ├─ driver, monitor, sequencer
-         │   └─ coverage_senzor
-         ├─ agent_buton             button stimulus (single, multiple, fast presses)
-         │   └─ coverage_agent_buton
-         ├─ agent_actuator          passive: observes heat / AC / dehumidifier / blinds outputs
-         │   └─ coverage_agent_actuator
-         └─ scoreboard              reference model + comparison against DUT outputs
+xvlog -sv -L uvm testbench.sv
+xelab top -L uvm -timescale 1ns/1ns -s top_sim
+xsim top_sim -R
 ```
 
-- **Interfaces with SVA**: `sensor_interface_dut.sv` checks input value ranges; `actuator_interface.sv` checks the control behaviour. Each property is paired with a `cover property`.
-- **Coverage**: bins target the DUT's decision thresholds and boundary values, e.g. the exact temperature, humidity, and light levels that switch actuators.
-- **Tests**: basic smoke test, boundary values, temperature and humidity regulation, light-intensity control, button stress (multiple, rapid, frequent presses), and a full combined test.
+Pentru alt test: `xsim top_sim -R -testplusarg UVM_TESTNAME=<numele_clasei_de_test>`.
 
-The DUT in `eda_2/design.sv` is an FSM-based ambient controller written by Pascu Marius (2021), used here as the design under test for the lab.
+## Ce se acoperă la laborator
 
-## How to run
-
-The environments are self-contained and were run on [EDA Playground](https://www.edaplayground.com):
-
-1. Create a new playground and select **UVM 1.2** and a SystemVerilog simulator (e.g. Synopsys VCS or Cadence Xcelium).
-2. Copy the files of one folder into the playground: `design.sv` goes in the design pane, everything else in the testbench pane.
-3. In `testbench.sv`, un-comment the `include` lines for the interfaces and the test you want.
-4. The default test is set in `run_test()` in `testbench.sv`; to run another one, add `+UVM_TESTNAME=<test_class_name>` to the run options, for example `+UVM_TESTNAME=test_de_baza_ambient`.
-
-## Topics covered in the lab
-
-- UVM testbench architecture: env, agents, driver, monitor, sequencer
-- Transactions, sequences, and constrained-random stimulus
-- Analysis ports and scoreboards with reference models
-- Functional coverage: covergroups, bins, and coverage-driven test writing
-- SystemVerilog Assertions in interfaces
+- Arhitectura unui testbench UVM: env, agente, driver, monitor, sequencer
+- Tranzacții, secvențe și stimuli aleatori cu constrângeri
+- Porturi de analiză, FIFO-uri TLM și scoreboard-uri
+- Coverage funcțional: covergroup-uri, bin-uri și cross-uri
